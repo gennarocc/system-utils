@@ -40,7 +40,7 @@ fi
 
 echo "[INFO] Starting Tar Backup"
 START_TIME=$(date +%s)
-tar -c -I'zstd -19 -T0' -f "${BACKUP_DIR}/${BACKUP_NAME}.tar.zst" --exclude=/hdd/media/tv --exclude=/hdd/media/movies --exclude=/hdd/.torrents --exclude=/hdd/.backup /hdd
+tar -c -I'zstd -3 -T0' -f "${BACKUP_DIR}/${BACKUP_NAME}.tar.zst" --exclude=/hdd/media/tv --exclude=/hdd/media/movies --exclude=/hdd/.torrents --exclude=/hdd/.backup /hdd
 
 TIME_ELAPSED=$(($(date +%s) - START_TIME))
 if [ $? -eq 0 ]; then
