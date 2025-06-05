@@ -6,12 +6,11 @@ BACKUP_NAME="backup-$(date -I).tar.xz"
 echo "[INFO] Starting Backup Script"
 echo "[INFO] Mounting Backup Drive..."
 
-if ! mount | grep -q "/hdd/.backup"; then
-    if ! mount UUID=bd25d834-eeb7-45e0-a152-9b226238b9a9 /hdd/.backup; then
-        echo "[ERROR] Backup drive not connected."
-        exit 1
-    fi
+if ! mount UUID=bd25d834-eeb7-45e0-a152-9b226238b9a9 ${BACKUP_DIR}; then
+    echo "[ERROR] Backup drive not connected."
+    exit 1
 fi
+
 
 echo "[INFO] Successfully Mounted Backup Drive"
 
