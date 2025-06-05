@@ -27,16 +27,9 @@ touch "$LOG_FILE"
 log "INFO: Starting Backup Script"
 
 # Mount backup drive if not already mounted
-log "INFO: Checking Backup Drive..."
-if ! mount | grep -q "/hdd/.backup"; then
-    log "INFO: Mounting Backup Drive..."
-    if ! mount UUID=bd25d834-eeb7-45e0-a152-9b226238b9a9 /hdd/.backup; then
-        log "ERROR: Backup drive not connected."
-        exit 1
-    fi
-    log "INFO: Successfully Mounted Backup Drive"
-else
-    log "INFO: Backup Drive Already Mounted"
+if ! mount UUID=bd25d834-eeb7-45e0-a152-9b226238b9a9 ${BACKUP_DIR}; then
+    echo "[ERROR] Backup drive not connected."
+    exit 1
 fi
 
 # Check available space before backup
