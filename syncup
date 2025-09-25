@@ -8,6 +8,7 @@ SOURCE_DIR="/hdd/"
 EXCLUDE_DIRS=(
     "media/tv/"
     "media/movies/"
+    "media/music/.tmp"
     ".torrents/"
     ".backup/"
     ".backup"
@@ -26,11 +27,14 @@ mkdir -p "${BACKUP_DIR}"
 touch "$LOG_FILE"
 log "INFO: Starting Backup Script"
 
-# Mount backup drive if not already mounted
-if ! mount UUID=bd25d834-eeb7-45e0-a152-9b226238b9a9 ${BACKUP_DIR}; then
-    echo "[ERROR] Backup drive not connected."
-    exit 1
+log "INFO: Mounting Backup Drive..."
+if ! mountpoint -q "${BACKUP_DIR}"; then
+    if ! mount "${BACKUP_DIR}"; then
+        log "ERROR: Failed to mount backup drive"
+        exit 1
+    fi
 fi
+log "INFO: Successfully Mounted Backup Drive"
 
 # Check available space before backup
 AVAILABLE_SPACE=$(df -B1 "${BACKUP_DIR}" | awk 'NR==2 {print $4}')
@@ -74,12 +78,12 @@ TIME_ELAPSED=$(($(date +%s) - START_TIME))
 if [ $RSYNC_STATUS -eq 0 ]; then
     log "INFO: Backup Successful"
     printf '[INFO] Backup duration - %dh:%dm:%ds\n' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60)) $((TIME_ELAPSED%60)) | tee -a "$LOG_FILE"
-    
+
     # Update the "latest" symlink to point to this backup
     rm -f "${LATEST_LINK}"
     ln -s "${SNAPSHOT_DIR}" "${LATEST_LINK}"
     log "INFO: Updated latest backup link"
-    
+
     # Enforce max backups limit
     cd "${BACKUP_DIR}" || exit
     BACKUP_COUNT=$(find . -maxdepth 1 -type d -name "backup-*" | wc -l)
