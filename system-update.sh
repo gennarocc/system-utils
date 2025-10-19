@@ -37,7 +37,7 @@ else
 fi
 
 # Show upgradeable packages
-UPGRADEABLE=$(apt list --upgradeable 2>/dev/null | tail -n +2 | sort)
+UPGRADEABLE=$(apt list --upgradeable 2>/dev/null | cut -d/ -f1 | grep -v Listing)
 UPGRADE_COUNT=$(echo "$UPGRADEABLE" | wc -l)
 
 # Perform upgrade

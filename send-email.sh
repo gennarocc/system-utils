@@ -22,13 +22,6 @@ OPTIONS:
     -b, --body TEXT         Email body text
     -f, --file FILE         Read body from file
     -h, --help              Show this help message
-
-EXAMPLES:
-    $(basename "$0") user@example.com "Backup Complete"
-    $(basename "$0") -b "Backup finished successfully" user@example.com "Backup Complete"
-    $(basename "$0") -f /var/log/backup.log user@example.com "Backup Complete"
-    echo "Test message" | $(basename "$0") user@example.com "Test Subject"
-
 EOF
     exit 1
 }

@@ -16,6 +16,7 @@ EXCLUDE_DIRS=(
 DATE=$(date -I)
 BACKUP_NAME="backup-${DATE}"
 LOG_FILE="${BACKUP_DIR}/backup-${DATE}.log"
+NOTIFICATION_SCRIPT=/home/pi/system-utils/send-email.sh
 
 # Function for logging
 log() {
@@ -95,6 +96,16 @@ if [ $RSYNC_STATUS -eq 0 ]; then
 else
     log "ERROR: rsync Backup Failed with status $RSYNC_STATUS"
     exit 1
+fi
+
+if [[ -n "$MAILTO" ]]; then
+    if "$NOTIFICATION_SCRIPT" "$MAILTO" "Backup" -f $LOG_FILE; then
+        log "Email notification sent to $MAILTO"
+    else 
+        log "Warning: Failed to send email notification"
+    fi
+else
+    log "MAILTO not set - skipping email notification"
 fi
 
 log "INFO: Listing Backups"
