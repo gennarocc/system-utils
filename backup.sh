@@ -1,7 +1,7 @@
 #!/bin/bash
 MAX_BACKUPS=3
 BACKUP_DIR=/hdd/.backup/
-BACKUP_NAME="backup-$(date -I).tar.xz"
+BACKUP_NAME="backup-$(date -I)"
 
 echo "[INFO] Starting Backup Script"
 echo "[INFO] Mounting Backup Drive..."
