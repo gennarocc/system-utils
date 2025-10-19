@@ -6,6 +6,7 @@ set -u  # Exit on undefined variable
 
 # Configuration
 LOG_FILE="/var/log/system-update.log"
+NOTIFICATION_SCRIPT="/home/pi/system-utils/send-email.sh"
 
 # Logging function
 log() {
@@ -18,6 +19,8 @@ error_exit() {
     log "ERROR: $1"
     exit 1
 }
+
+### Script Start
 
 # Check if running as root
 if [[ $EUID -ne 0 ]]; then
@@ -35,13 +38,7 @@ fi
 
 # Show upgradeable packages
 UPGRADEABLE=$(apt list --upgradeable 2>/dev/null | tail -n +2 | sort)
-if [[ -n "$UPGRADEABLE" ]]; then
-    log "Upgradeable packages: $(echo "$UPGRADEABLE" | wc -l) packages"
-else
-    echo "No packages to upgrade"
-    echo "System is already up to date!"
-    exit 0
-fi
+UPGRADE_COUNT=$(echo "$UPGRADEABLE" | wc -l)
 
 # Perform upgrade
 if DEBIAN_FRONTEND=noninteractive apt -y upgrade -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >> "$LOG_FILE" 2>&1; then
@@ -50,12 +47,31 @@ else
     error_exit "Failed to upgrade packages"
 fi
 
+# Prepare notification body
+NOTIFICATION_BODY="System update completed successfully on $(hostname)\n\n"
+NOTIFICATION_BODY+="Updated Packages ($UPGRADE_COUNT):\n"
+NOTIFICATION_BODY+="==================================\n"
+NOTIFICATION_BODY+="$UPGRADEABLE\n\n"
+
 # Check if reboot is required
 if [[ -f /var/run/reboot-required ]]; then
     log "Reboot required after update"
+    NOTIFICATION_BODY+="==================================\n"
+    NOTIFICATION_BODY+="[[REBOOT REQUIRED]]\n"
     if [[ -f /var/run/reboot-required.pkgs ]]; then
         cat /var/run/reboot-required.pkgs
     fi
 fi
+
+# Send Email Notification
+if [[ -n "$MAILTO" ]]; then
+    if echo "$NOTIFICATION_BODY" | "$NOTIFICATION_SCRIPT" "$MAILTO" " System Update"; then
+        log "Email notification sent to $MAILTO"
+    else
+        log "Warning: Failed to send email notification"
+    fi
+else
+    log "MAILTO not set - skipping email notification"
+fi 
 
 log "System update completed successfully"
