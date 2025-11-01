@@ -30,7 +30,7 @@ fi
 log "System update started"
 
 # Update package lists
-if DEBIAN_FRONTEND=noninteractive apt update -y >> "$LOG_FILE" 2>&1; then
+if DEBIAN_FRONTEND=noninteractive apt-get update -y >> "$LOG_FILE" 2>&1; then
     log "Package lists updated successfully"
 else
     error_exit "Failed to update package lists"
@@ -41,7 +41,7 @@ UPGRADEABLE=$(apt list --upgradeable 2>/dev/null | cut -d/ -f1 | grep -v Listing
 UPGRADE_COUNT=$(echo "$UPGRADEABLE" | wc -l)
 
 # Perform upgrade
-if DEBIAN_FRONTEND=noninteractive apt -y upgrade -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >> "$LOG_FILE" 2>&1; then
+if DEBIAN_FRONTEND=noninteractive apt-get -y upgrade -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" >> "$LOG_FILE" 2>&1; then
     log "Packages upgraded successfully"
 else
     error_exit "Failed to upgrade packages"

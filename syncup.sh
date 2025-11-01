@@ -12,6 +12,7 @@ EXCLUDE_DIRS=(
     ".torrents/"
     ".backup/"
     ".backup"
+    ".monitoring"
 )
 DATE=$(date -I)
 BACKUP_NAME="backup-${DATE}"
