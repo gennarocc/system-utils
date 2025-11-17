@@ -64,14 +64,14 @@ if [[ -f /var/run/reboot-required ]]; then
 fi
 
 # Send Email Notification
-if [[ -n "$MAILTO" ]]; then
-    if echo "$NOTIFICATION_BODY" | "$NOTIFICATION_SCRIPT" "$MAILTO" " System Update"; then
-        log "Email notification sent to $MAILTO"
+if [[ -n "$EMAIL" ]]; then
+    if echo "$NOTIFICATION_BODY" | "$NOTIFICATION_SCRIPT" "$EMAIL" " System Update"; then
+        log "Email notification sent to $EMAIL"
     else
         log "Warning: Failed to send email notification"
     fi
 else
-    log "MAILTO not set - skipping email notification"
+    log "EMAIL env var not set - skipping email notification"
 fi 
 
 log "System update completed successfully"

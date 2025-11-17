@@ -102,14 +102,14 @@ log "INFO: Listing Backups"
 ls -la "${BACKUP_DIR}" | tee -a "$LOG_FILE"
 log "INFO: Backup Script Completed Successfully"
 
-if [[ -n "$MAILTO" ]]; then
-    if "$NOTIFICATION_SCRIPT" "$MAILTO" "Backup" -f $LOG_FILE; then
-        log "Email notification sent to $MAILTO"
+if [[ -n "$EMAIL" ]]; then
+    if "$NOTIFICATION_SCRIPT" "$EMAIL" "Backup" -f $LOG_FILE; then
+        log "Email notification sent to $EMAIL"
     else 
         log "Warning: Failed to send email notification"
     fi
 else
-    log "MAILTO not set - skipping email notification"
+    log "EMAIL env var not set - skipping email notification"
 fi
 
 
