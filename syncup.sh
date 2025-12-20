@@ -4,7 +4,6 @@
 MAX_BACKUPS=3
 BACKUP_DIR="/hdd/.backup/"
 SOURCE_DIR="/hdd/"
-# Define exclusions as an array (relative to SOURCE_DIR)
 EXCLUDE_DIRS=(
     "media/tv/"
     "media/movies/"
@@ -16,10 +15,9 @@ EXCLUDE_DIRS=(
 )
 DATE=$(date -I)
 BACKUP_NAME="backup-${DATE}"
-LOG_FILE="/var/log/backups/backup-${DATE}.log"
+LOG_FILE="$HOME/.local/log/backups/backup-${DATE}.log"
 NOTIFICATION_SCRIPT=/home/pi/system-utils/send-email.sh
 
-# Function for logging
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
