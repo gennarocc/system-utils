@@ -1,9 +1,6 @@
 #!/bin/bash
 # Automated system update script
 
-set -e  # Exit on error
-set -u  # Exit on undefined variable
-
 # Configuration
 DATE=$(date -I)
 LOG_FILE="/home/pi/.local/log/system-updates/update-${DATE}.log"
@@ -52,15 +49,34 @@ else
     error_exit "Failed to upgrade packages"
 fi
 
+# Get storage usage information
+STORAGE_INFO=$(df -h /hdd /home 2>/dev/null | tail -n +2)
+log "Storage information collected"
+
+# Get RAID status for md0
+if [[ -e /dev/md0 ]]; then
+    RAID_STATUS=$(cat /proc/mdstat | grep -A 3 "md0" 2>/dev/null || echo "md0 array found but status unavailable")
+    log "RAID status collected"
+else
+    RAID_STATUS="md0 array not found"
+    log "Warning: md0 RAID array not found"
+fi
+
 # Prepare notification body
 NOTIFICATION_BODY="System update completed successfully on $(hostname)\n\n"
 NOTIFICATION_BODY+="Updated Packages ($UPGRADE_COUNT):\n"
 NOTIFICATION_BODY+="==================================\n"
 NOTIFICATION_BODY+="$UPGRADEABLE\n\n"
+NOTIFICATION_BODY+="Storage Usage:\n"
+NOTIFICATION_BODY+="==================================\n"
+NOTIFICATION_BODY+="$STORAGE_INFO\n\n"
+NOTIFICATION_BODY+="RAID Status (md0):\n"
+NOTIFICATION_BODY+="==================================\n"
+NOTIFICATION_BODY+="$RAID_STATUS\n\n"
 
 # Send Email Notification
 if [[ -n "$EMAIL" ]]; then
-    if echo "$NOTIFICATION_BODY" | "$NOTIFICATION_SCRIPT" "$EMAIL" " System Update"; then
+    if echo -e "$NOTIFICATION_BODY" | "$NOTIFICATION_SCRIPT" "$EMAIL" "System Update"; then
         log "Email notification sent to $EMAIL"
     else
         log "Warning: Failed to send email notification"
