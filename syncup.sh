@@ -10,6 +10,7 @@ EXCLUDE_DIRS=(
     "media/music/.tmp"
     "pictures/library/storage/backup/"
     "pictures/library/storage/users/"
+    "pictures/library/storage/cache/"
     "pictures/library/database/"
     ".torrents/"
     ".backup/"

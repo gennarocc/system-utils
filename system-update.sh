@@ -58,16 +58,6 @@ NOTIFICATION_BODY+="Updated Packages ($UPGRADE_COUNT):\n"
 NOTIFICATION_BODY+="==================================\n"
 NOTIFICATION_BODY+="$UPGRADEABLE\n\n"
 
-# Check if reboot is required
-if [[ -f /var/run/reboot-required ]]; then
-    log "Reboot required after update"
-    NOTIFICATION_BODY+="==================================\n"
-    NOTIFICATION_BODY+="[[REBOOT REQUIRED]]\n"
-    if [[ -f /var/run/reboot-required.pkgs ]]; then
-        cat /var/run/reboot-required.pkgs
-    fi
-fi
-
 # Send Email Notification
 if [[ -n "$EMAIL" ]]; then
     if echo "$NOTIFICATION_BODY" | "$NOTIFICATION_SCRIPT" "$EMAIL" " System Update"; then
