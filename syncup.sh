@@ -20,7 +20,7 @@ DATE=$(date -I)
 BACKUP_NAME="backup-${DATE}"
 LOG_FILE="$HOME/.local/log/backups/backup-${DATE}.log"
 NOTIFICATION_SCRIPT=/home/pi/system-utils/send-email.sh
-SUMMARY_FILE=$(mktemp)
+RSYNC_OUTPUT=$(mktemp)
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
@@ -81,7 +81,7 @@ eval rsync -aAXHv --delete --stats \
 
 RSYNC_STATUS=${PIPESTATUS[0]}
 TIME_ELAPSED=$(($(date +%s) - START_TIME))
-DURATION=(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60)) $((TIME_ELAPSED%60)))
+DURATION=$(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60)) $((TIME_ELAPSED%60)))
 
 # Create summary file
 {
@@ -105,12 +105,12 @@ DURATION=(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60)) 
     echo "─────────────────────────────────────────────────"
     echo "Transfer Statistics:"
     echo "─────────────────────────────────────────────────"
-    grep -E "Number of files:|Number of created files:|Number of deleted files:|Number of regular files transferred:|Total file size:|Total transferred file size:|Literal data:|Matched data:|File list size:|Total bytes sent:|Total bytes received:" "$RSYNC_OUTPUT" | sed 's/^/  /'
+    grep -E "Number of files:|Number of created files:|Number of deleted files:|Number of regular files transferred:|Total file size:|Total transferred file size:|Literal data:|Matched data:|File list size:|Total bytes sent:|Total bytes received:" "$LOG_FILE" | tail -20 | sed 's/^/  /'
     echo ""
     
     # Check for errors or warnings in the log
-    ERROR_COUNT=$(grep -c "ERROR:" "$LOG_FILE" || echo "0")
-    WARNING_COUNT=$(grep -c "Warning:" "$LOG_FILE" || echo "0")
+    ERROR_COUNT=$(grep -c "ERROR:" "$LOG_FILE" 2>/dev/null || echo "0")
+    WARNING_COUNT=$(grep -c "Warning:" "$LOG_FILE" 2>/dev/null/ || echo "0")
     
     if [ "$ERROR_COUNT" -gt 0 ] || [ "$WARNING_COUNT" -gt 0 ]; then
         echo "─────────────────────────────────────────────────"
@@ -134,12 +134,11 @@ DURATION=(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60)) 
     echo ""
     echo "Full log available at: ${LOG_FILE}"
     echo "═══════════════════════════════════════════════════"
-} > "$SUMMARY_FILE"
+} > "$RSYNC_OUTPUT"
 
 # Display summary in log
-cat "$SUMMARY_FILE" | tee -a "$LOG_FILE"
+cat "$RSYNC_OUTPUT" | tee -a "$LOG_FILE"
 
-rm -f "$RSYNC_OUTPUT"
 
 if [ $RSYNC_STATUS -eq 0 ]; then
     log "INFO: Backup Successful"
@@ -168,7 +167,7 @@ log "INFO: Backup Script Completed Successfully"
 
 # Send email with summary instead of full log
 if [[ -n "$EMAIL" ]]; then
-    if "$NOTIFICATION_SCRIPT" "$EMAIL" "Backup Report - ${DATE}" -f "$SUMMARY_FILE"; then
+    if "$NOTIFICATION_SCRIPT" "$EMAIL" "Backup Report - ${DATE}" -f "$RSYNC_OUTPUT"; then
         log "INFO: Email notification sent to $EMAIL"
     else 
         log "Warning: Failed to send email notification"
@@ -178,6 +177,4 @@ else
 fi
 
 # Clean up temporary files
-rm -f "$SUMMARY_FILE"
-
-
+rm -f "$RSYNC_OUTPUT"
