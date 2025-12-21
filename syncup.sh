@@ -20,6 +20,7 @@ DATE=$(date -I)
 BACKUP_NAME="backup-${DATE}"
 LOG_FILE="$HOME/.local/log/backups/backup-${DATE}.log"
 NOTIFICATION_SCRIPT=/home/pi/system-utils/send-email.sh
+SUMMARY_FILE=$(mktemp)
 
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
@@ -50,10 +51,14 @@ LATEST_LINK="${BACKUP_DIR}/latest"
 if [ -d "${LATEST_LINK}" ]; then
     LINK_DEST="--link-dest=${LATEST_LINK}"
     log "INFO: Using incremental backup with reference to ${LATEST_LINK}"
+    BACKUP_TYPE="Incremental"
 else
     LINK_DEST=""
     log "INFO: No previous backup found, performing full backup"
+    BACKUP_TYPE="Full"
 fi
+
+
 
 # Build exclude parameters from the array
 EXCLUDE_PARAMS=""
@@ -68,19 +73,76 @@ START_TIME=$(date +%s)
 # Create the new backup using rsync with hardlinks for unchanged files
 cd "${SOURCE_DIR}" || exit
 # Using eval to properly handle the constructed exclude parameters
-eval rsync -aAXHv --delete \
+eval rsync -aAXHv --delete --stats \
     ${EXCLUDE_PARAMS} \
     ${LINK_DEST} \
     . "${SNAPSHOT_DIR}" \
-    2>&1 | tee -a "$LOG_FILE"
+    2>&1 | tee "$RSYNC_OUTPUT" >> "$LOG_FILE"
 
 RSYNC_STATUS=${PIPESTATUS[0]}
 TIME_ELAPSED=$(($(date +%s) - START_TIME))
+DURATION=(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60)) $((TIME_ELAPSED%60)))
+
+# Create summary file
+{
+    echo "═══════════════════════════════════════════════════"
+    echo "           BACKUP SUMMARY - ${DATE}"
+    echo "═══════════════════════════════════════════════════"
+    echo ""
+    
+    if [ $RSYNC_STATUS -eq 0 ]; then
+        echo "✓ Status: SUCCESS"
+    else
+        echo "✗ Status: FAILED (exit code: $RSYNC_STATUS)"
+    fi
+    
+    echo "Backup Type: ${BACKUP_TYPE}"
+    echo "Duration: ${DURATION}"
+    echo "Available Space: $(numfmt --to=iec-i --suffix=B ${AVAILABLE_SPACE})"
+    echo ""
+    
+    # Extract rsync statistics
+    echo "─────────────────────────────────────────────────"
+    echo "Transfer Statistics:"
+    echo "─────────────────────────────────────────────────"
+    grep -E "Number of files:|Number of created files:|Number of deleted files:|Number of regular files transferred:|Total file size:|Total transferred file size:|Literal data:|Matched data:|File list size:|Total bytes sent:|Total bytes received:" "$RSYNC_OUTPUT" | sed 's/^/  /'
+    echo ""
+    
+    # Check for errors or warnings in the log
+    ERROR_COUNT=$(grep -c "ERROR:" "$LOG_FILE" || echo "0")
+    WARNING_COUNT=$(grep -c "Warning:" "$LOG_FILE" || echo "0")
+    
+    if [ "$ERROR_COUNT" -gt 0 ] || [ "$WARNING_COUNT" -gt 0 ]; then
+        echo "─────────────────────────────────────────────────"
+        echo "Issues Found:"
+        echo "─────────────────────────────────────────────────"
+        [ "$ERROR_COUNT" -gt 0 ] && echo "  Errors: $ERROR_COUNT"
+        [ "$WARNING_COUNT" -gt 0 ] && echo "  Warnings: $WARNING_COUNT"
+        echo ""
+        echo "Recent errors/warnings:"
+        grep -E "ERROR:|Warning:" "$LOG_FILE" | tail -5 | sed 's/^/  /'
+        echo ""
+    fi
+    
+    # List current backups
+    cd "${BACKUP_DIR}" || exit
+    BACKUP_COUNT=$(find . -maxdepth 1 -type d -name "backup-*" | wc -l)
+    echo "─────────────────────────────────────────────────"
+    echo "Current Backups: ${BACKUP_COUNT}/${MAX_BACKUPS}"
+    echo "─────────────────────────────────────────────────"
+    find . -maxdepth 1 -type d -name "backup-*" -printf "  %TY-%Tm-%Td %TH:%TM - %f\n" | sort -r
+    echo ""
+    echo "Full log available at: ${LOG_FILE}"
+    echo "═══════════════════════════════════════════════════"
+} > "$SUMMARY_FILE"
+
+# Display summary in log
+cat "$SUMMARY_FILE" | tee -a "$LOG_FILE"
+
+rm -f "$RSYNC_OUTPUT"
 
 if [ $RSYNC_STATUS -eq 0 ]; then
     log "INFO: Backup Successful"
-    DURATION=$(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60)) $((TIME_ELAPSED%60)))
-    log "INFO: Backup duration - ${DURATION}"
 
     # Update the "latest" symlink to point to this backup
     rm -f "${LATEST_LINK}"
@@ -104,14 +166,18 @@ log "INFO: Listing Backups"
 ls -la "${BACKUP_DIR}" | tee -a "$LOG_FILE"
 log "INFO: Backup Script Completed Successfully"
 
+# Send email with summary instead of full log
 if [[ -n "$EMAIL" ]]; then
-    if "$NOTIFICATION_SCRIPT" "$EMAIL" "Backup" -f $LOG_FILE; then
-        log "Email notification sent to $EMAIL"
+    if "$NOTIFICATION_SCRIPT" "$EMAIL" "Backup Report - ${DATE}" -f "$SUMMARY_FILE"; then
+        log "INFO: Email notification sent to $EMAIL"
     else 
         log "Warning: Failed to send email notification"
     fi
 else
-    log "EMAIL env var not set - skipping email notification"
+    log "INFO: EMAIL env var not set - skipping email notification"
 fi
+
+# Clean up temporary files
+rm -f "$SUMMARY_FILE"
 
 
