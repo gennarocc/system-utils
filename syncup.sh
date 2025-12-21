@@ -8,6 +8,9 @@ EXCLUDE_DIRS=(
     "media/tv/"
     "media/movies/"
     "media/music/.tmp"
+    "pictures/library/storage/backup/"
+    "pictures/library/storage/users/"
+    "pictures/library/database/"
     ".torrents/"
     ".backup/"
     ".backup"
@@ -76,7 +79,7 @@ TIME_ELAPSED=$(($(date +%s) - START_TIME))
 
 if [ $RSYNC_STATUS -eq 0 ]; then
     log "INFO: Backup Successful"
-    printf '[INFO] Backup duration - %dh:%dm:%ds\n' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60)) $((TIME_ELAPSED%60)) | tee -a "$LOG_FILE"
+    log 'INFO: Backup duration - %dh:%dm:%ds\n' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60)) $((TIME_ELAPSED%60)) | tee -a "$LOG_FILE"
 
     # Update the "latest" symlink to point to this backup
     rm -f "${LATEST_LINK}"

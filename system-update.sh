@@ -5,13 +5,16 @@ set -e  # Exit on error
 set -u  # Exit on undefined variable
 
 # Configuration
-LOG_FILE="/var/log/system-update.log"
-NOTIFICATION_SCRIPT="/home/pi/system-utils/send-email.sh"
+DATE=$(date -I)
+LOG_FILE="/home/pi/.local/log/system-updates/update-${DATE}.log"
+NOTIFICATION_SCRIPT=/home/pi/system-utils/send-email.sh
+
 
 # Logging function
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
+
 
 # Error handler
 error_exit() {
@@ -21,6 +24,8 @@ error_exit() {
 }
 
 ### Script Start
+
+touch "$LOG_FILE"
 
 # Check if running as root
 if [[ $EUID -ne 0 ]]; then
