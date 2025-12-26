@@ -1,14 +1,39 @@
 #!/bin/bash
 
-# Array with screensaver commands
-screensavers=("pipes -f 20 -p 2" "lavat -c cyan -R1 -F @@:::::: -r3", "terminal-rain")
+screensavers=("pipes -f 20 -p 2" "lavat -c cyan -R1 -F @@:::::: -r3")
 
-# Seed random generator
-RANDOM=$$$(date +%s)
+get_weather() {
+    # Get weather data for Raleigh
+    local weather=$(curl -s "wttr.in/Raleigh?format=%C")
+    echo "$weather"
+}
 
-# Select random screensaver
-selected_screensaver=${screensavers[$RANDOM % ${#screensavers[@]}]}
+select_screensaver() {
+    local weather=$(get_weather)
+    
+    if echo "$weather" | grep -iE "thunder|storm" > /dev/null; then
+        echo "terminal-rain -t"
+    elif echo "$weather" | grep -iE "rain|drizzle|shower" > /dev/null; then
+        echo "terminal-rain"
+    else
+        # Pick random screensaver from base array
+        echo "${screensavers[$RANDOM % ${#screensavers[@]}]}"
+    fi
+}
 
-# Run the selected screensaver
-echo "Running: $selected_screensaver"
-eval $selected_screensaver
+while true; do
+    selected_screensaver=$(select_screensaver)
+    
+    # Run the selected screensaver
+    eval $selected_screensaver &
+    screensaver_pid=$!
+    
+    # Check weather every 3 hours
+    sleep 10800
+    
+    # Kill the screensaver
+    kill $screensaver_pid 2>/dev/null
+    wait $screensaver_pid 2>/dev/null
+    
+    sleep 1
+done
