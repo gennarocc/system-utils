@@ -1,6 +1,6 @@
 #!/bin/bash
 
-screensavers=("pipes -f 20 -p 2" "lavat -c cyan -R1 -F @@:::::: -r3")
+screensavers=("pipes -f 30 -p 4 -r 3000" "lavat -c cyan -R1 -F @@:::::: -r3")
 
 get_weather() {
     # Get weather data for Raleigh
@@ -25,7 +25,7 @@ while true; do
     selected_screensaver=$(select_screensaver)
     
     # Run the selected screensaver
-    eval $selected_screensaver &
+    eval $selected_screensaver < /dev/tty &
     screensaver_pid=$!
     
     # Check weather every 3 hours
@@ -33,7 +33,10 @@ while true; do
     
     # Kill the screensaver
     kill $screensaver_pid 2>/dev/null
+    pkill -P $screensaver_pid 2>/dev/null
     wait $screensaver_pid 2>/dev/null
     
     sleep 1
+
+    clear
 done

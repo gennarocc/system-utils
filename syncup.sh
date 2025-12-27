@@ -35,7 +35,7 @@ log "INFO: Mounting Backup Drive..."
 if ! mountpoint -q "${BACKUP_DIR}"; then
     if ! mount "${BACKUP_DIR}"; then
         log "ERROR: Failed to mount backup drive"
-        exit 1
+        return 1
     fi
 fi
 log "INFO: Successfully Mounted Backup Drive"
@@ -52,16 +52,11 @@ LATEST_LINK="${BACKUP_DIR}/latest"
 if [ -d "${LATEST_LINK}" ]; then
     LINK_DEST="--link-dest=${LATEST_LINK}"
     log "INFO: Using incremental backup with reference to ${LATEST_LINK}"
-    BACKUP_TYPE="Incremental"
 else
     LINK_DEST=""
     log "INFO: No previous backup found, performing full backup"
-    BACKUP_TYPE="Full"
 fi
 
-
-
-# Build exclude parameters from the array
 EXCLUDE_PARAMS=""
 for dir in "${EXCLUDE_DIRS[@]}"; do
     EXCLUDE_PARAMS="${EXCLUDE_PARAMS} --exclude='${dir}'"
@@ -72,7 +67,7 @@ log "INFO: Starting rsync Backup"
 START_TIME=$(date +%s)
 
 # Create the new backup using rsync with hardlinks for unchanged files
-cd "${SOURCE_DIR}" || exit
+cd "${SOURCE_DIR}" || return 1
 # Using eval to properly handle the constructed exclude parameters
 eval rsync -aAXHv --delete --stats \
     ${EXCLUDE_PARAMS} \
@@ -97,7 +92,6 @@ DURATION=$(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60))
         echo "✗ Status: FAILED (exit code: $RSYNC_STATUS)"
     fi
     
-    echo "Backup Type: ${BACKUP_TYPE}"
     echo "Duration: ${DURATION}"
     echo "Available Space: $(numfmt --to=iec-i --suffix=B ${AVAILABLE_SPACE})"
     echo ""
@@ -111,7 +105,7 @@ DURATION=$(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60))
     
     # Check for errors or warnings in the log
     ERROR_COUNT=$(grep -c "ERROR:" "$LOG_FILE" 2>/dev/null || echo "0")
-    WARNING_COUNT=$(grep -c "Warning:" "$LOG_FILE" 2>/dev/null/ || echo "0")
+    WARNING_COUNT=$(grep -c "Warning:" "$LOG_FILE" 2>/dev/null || echo "0")
     
     if [ "$ERROR_COUNT" -gt 0 ] || [ "$WARNING_COUNT" -gt 0 ]; then
         echo "─────────────────────────────────────────────────"
@@ -126,7 +120,7 @@ DURATION=$(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60))
     fi
     
     # List current backups
-    cd "${BACKUP_DIR}" || exit
+    cd "${BACKUP_DIR}" || return 1
     BACKUP_COUNT=$(find . -maxdepth 1 -type d -name "backup-*" | wc -l)
     echo "─────────────────────────────────────────────────"
     echo "Current Backups: ${BACKUP_COUNT}/${MAX_BACKUPS}"
@@ -150,7 +144,7 @@ if [ $RSYNC_STATUS -eq 0 ]; then
     log "INFO: Updated latest backup link"
 
     # Enforce max backups limit
-    cd "${BACKUP_DIR}" || exit
+    cd "${BACKUP_DIR}" || return 1
     BACKUP_COUNT=$(find . -maxdepth 1 -type d -name "backup-*" | wc -l)
     if [ "$BACKUP_COUNT" -gt "$MAX_BACKUPS" ]; then
         NUM_TO_DELETE=$((BACKUP_COUNT - MAX_BACKUPS))
@@ -159,7 +153,7 @@ if [ $RSYNC_STATUS -eq 0 ]; then
     fi
 else
     log "ERROR: rsync Backup Failed with status $RSYNC_STATUS"
-    exit 1
+    return 1
 fi
 
 log "INFO: Listing Backups"
