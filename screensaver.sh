@@ -1,6 +1,6 @@
 #!/bin/bash
 
-screensavers=("pipes -f 30 -p 4 -r 3000" "lavat -c cyan -R1 -F @@:::::: -r3")
+screensavers=("pipes -f 30 -p 2 -r 2500" "lavat -c cyan -R1 -F @@:::::: -r3")
 
 get_weather() {
     # Get weather data for Raleigh
@@ -16,7 +16,7 @@ select_screensaver() {
     elif echo "$weather" | grep -iE "rain|drizzle|shower" > /dev/null; then
         echo "terminal-rain"
     else
-        # Pick random screensaver from base array
+        # Pick random screensaver from array
         echo "${screensavers[$RANDOM % ${#screensavers[@]}]}"
     fi
 }
@@ -24,19 +24,15 @@ select_screensaver() {
 while true; do
     selected_screensaver=$(select_screensaver)
     
-    # Run the selected screensaver
-    eval $selected_screensaver < /dev/tty &
+    (exec $selected_screensaver < /dev/tty) &
     screensaver_pid=$!
     
     # Check weather every 3 hours
-    sleep 10800
-    
-    # Kill the screensaver
+    # sleep 10800
+    sleep 10 
+
     kill $screensaver_pid 2>/dev/null
-    pkill -P $screensaver_pid 2>/dev/null
-    wait $screensaver_pid 2>/dev/null
     
     sleep 1
-
     clear
 done
