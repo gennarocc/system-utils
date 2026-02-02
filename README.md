@@ -19,5 +19,9 @@ Various utility scripts I use on my systems and when scripting in general
   - [pipes.sh](https://github.com/pipeseroni/pipes.sh)
   - [terminal-rain](https://github.com/rmaake1/terminal-rain-lightning)
 
+### sync_roms_.sh
+
+- Script for my steam deck to sync the local rom folder to the network drive and download any new roms I've added. Also uploads all emulator save data.
+
 ### backup.sh (depricated)
 - Backup script using zstd compression and multiple redundant backups.
