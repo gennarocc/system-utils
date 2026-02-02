@@ -68,14 +68,14 @@ START_TIME=$(date +%s)
 
 # Create the new backup using rsync with hardlinks for unchanged files
 cd "${SOURCE_DIR}" || return 1
-# Using eval to properly handle the constructed exclude parameters
+
 eval rsync -aAXHv --delete --stats \
     ${EXCLUDE_PARAMS} \
     ${LINK_DEST} \
     . "${SNAPSHOT_DIR}" \
-    2>&1 | tee "$RSYNC_OUTPUT" >> "$LOG_FILE"
+    > >(tee "$RSYNC_OUTPUT" >> "$LOG_FILE") 2>&1
 
-RSYNC_STATUS=${PIPESTATUS[0]}
+RSYNC_STATUS=$?
 TIME_ELAPSED=$(($(date +%s) - START_TIME))
 DURATION=$(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60)) $((TIME_ELAPSED%60)))
 
