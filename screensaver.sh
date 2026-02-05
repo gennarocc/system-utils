@@ -1,6 +1,6 @@
 #!/bin/bash
 
-screensavers=("pipes -f 30 -p 2 -r 2500" "lavat -c cyan -R1 -F @@:::::: -r3" "mystify-term -s")
+screensavers=("pipes -f 30 -p 2 -r 2500" "mystify-term -s")
 screensaver_pid=""
 
 get_weather() {

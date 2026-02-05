@@ -16,7 +16,7 @@ echo ""
 
 # Sync ROMs from network share to Steam Deck (download new ROMs)
 echo "Syncing ROMs from network share to Steam Deck..."
-rsync -avh --progress \
+rsync -avhL --progress \
     --exclude='.*' \
     --exclude='ps3/' \
     "$NETWORK_HOST:$REMOTE_ROMS_PATH" \

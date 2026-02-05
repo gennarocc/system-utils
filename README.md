@@ -15,7 +15,7 @@ Various utility scripts I use on my systems and when scripting in general
 
 ### screensaver.sh
 - Randomly selects from one of my installed cli screensavers
-  - [lavat](https://github.com/AngelJumbo/lavat)
+  - [mystify-term](https://github.com/adsr/mystify-term)
   - [pipes.sh](https://github.com/pipeseroni/pipes.sh)
   - [terminal-rain](https://github.com/rmaake1/terminal-rain-lightning)
 
