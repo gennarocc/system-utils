@@ -10,15 +10,8 @@ get_weather() {
 }
 
 select_screensaver() {
-    local weather=$(get_weather)
-    if echo "$weather" | grep -iE "thunder|storm" > /dev/null; then
-        echo "terminal-rain -t"
-    elif echo "$weather" | grep -iE "rain|drizzle|shower" > /dev/null; then
-        echo "terminal-rain"
-    else
-        # Pick random screensaver from array
-        echo "${screensavers[$RANDOM % ${#screensavers[@]}]}"
-    fi
+    # Pick random screensaver from array
+    echo "${screensavers[$RANDOM % ${#screensavers[@]}]}"
 }
 
 cleanup() {

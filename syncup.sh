@@ -16,6 +16,7 @@ EXCLUDE_DIRS=(
     ".backup/"
     ".backup"
     ".monitoring"
+    "games/.database"
 )
 DATE=$(date -I)
 BACKUP_NAME="backup-${DATE}"
@@ -27,6 +28,9 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
 
+# Create log directory if it doesn't exist
+mkdir -p "$(dirname "$LOG_FILE")"
+
 # Create log file
 touch "$LOG_FILE"
 log "INFO: Starting Backup Script"
@@ -35,7 +39,7 @@ log "INFO: Mounting Backup Drive..."
 if ! mountpoint -q "${BACKUP_DIR}"; then
     if ! mount "${BACKUP_DIR}"; then
         log "ERROR: Failed to mount backup drive"
-        return 1
+        exit 1
     fi
 fi
 log "INFO: Successfully Mounted Backup Drive"
@@ -67,7 +71,7 @@ log "INFO: Starting rsync Backup"
 START_TIME=$(date +%s)
 
 # Create the new backup using rsync with hardlinks for unchanged files
-cd "${SOURCE_DIR}" || return 1
+cd "${SOURCE_DIR}" || exit 1
 
 eval rsync -aAXHv --delete --stats \
     ${EXCLUDE_PARAMS} \
@@ -85,28 +89,36 @@ DURATION=$(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60))
     echo "           BACKUP SUMMARY - ${DATE}"
     echo "═══════════════════════════════════════════════════"
     echo ""
-    
+
     if [ $RSYNC_STATUS -eq 0 ]; then
         echo "✓ Status: SUCCESS"
     else
         echo "✗ Status: FAILED (exit code: $RSYNC_STATUS)"
     fi
-    
+
     echo "Duration: ${DURATION}"
     echo "Available Space: $(numfmt --to=iec-i --suffix=B ${AVAILABLE_SPACE})"
     echo ""
-    
+
     # Extract rsync statistics
     echo "─────────────────────────────────────────────────"
     echo "Transfer Statistics:"
     echo "─────────────────────────────────────────────────"
     grep -E "Number of files:|Number of created files:|Number of deleted files:|Number of regular files transferred:|Total file size:|Total transferred file size:|Literal data:|Matched data:|File list size:|Total bytes sent:|Total bytes received:" "$LOG_FILE" | tail -20 | sed 's/^/  /'
     echo ""
-    
-    # Check for errors or warnings in the log
+
+    # Check for errors or warnings in the log (fixed integer comparison)
     ERROR_COUNT=$(grep -c "ERROR:" "$LOG_FILE" 2>/dev/null || echo "0")
     WARNING_COUNT=$(grep -c "Warning:" "$LOG_FILE" 2>/dev/null || echo "0")
     
+    # Remove any whitespace/newlines
+    ERROR_COUNT=$(echo "$ERROR_COUNT" | tr -d '[:space:]')
+    WARNING_COUNT=$(echo "$WARNING_COUNT" | tr -d '[:space:]')
+    
+    # Ensure they're valid integers
+    ERROR_COUNT=${ERROR_COUNT:-0}
+    WARNING_COUNT=${WARNING_COUNT:-0}
+
     if [ "$ERROR_COUNT" -gt 0 ] || [ "$WARNING_COUNT" -gt 0 ]; then
         echo "─────────────────────────────────────────────────"
         echo "Issues Found:"
@@ -118,9 +130,9 @@ DURATION=$(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60))
         grep -E "ERROR:|Warning:" "$LOG_FILE" | tail -5 | sed 's/^/  /'
         echo ""
     fi
-    
+
     # List current backups
-    cd "${BACKUP_DIR}" || return 1
+    cd "${BACKUP_DIR}" || exit 1
     BACKUP_COUNT=$(find . -maxdepth 1 -type d -name "backup-*" | wc -l)
     echo "─────────────────────────────────────────────────"
     echo "Current Backups: ${BACKUP_COUNT}/${MAX_BACKUPS}"
@@ -144,7 +156,7 @@ if [ $RSYNC_STATUS -eq 0 ]; then
     log "INFO: Updated latest backup link"
 
     # Enforce max backups limit
-    cd "${BACKUP_DIR}" || return 1
+    cd "${BACKUP_DIR}" || exit 1
     BACKUP_COUNT=$(find . -maxdepth 1 -type d -name "backup-*" | wc -l)
     if [ "$BACKUP_COUNT" -gt "$MAX_BACKUPS" ]; then
         NUM_TO_DELETE=$((BACKUP_COUNT - MAX_BACKUPS))
@@ -153,7 +165,7 @@ if [ $RSYNC_STATUS -eq 0 ]; then
     fi
 else
     log "ERROR: rsync Backup Failed with status $RSYNC_STATUS"
-    return 1
+    exit 1
 fi
 
 log "INFO: Listing Backups"
@@ -164,7 +176,7 @@ log "INFO: Backup Script Completed Successfully"
 if [[ -n "$EMAIL" ]]; then
     if "$NOTIFICATION_SCRIPT" "$EMAIL" "Backup Report - ${DATE}" -f "$RSYNC_OUTPUT"; then
         log "INFO: Email notification sent to $EMAIL"
-    else 
+    else
         log "Warning: Failed to send email notification"
     fi
 else
