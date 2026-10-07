@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Configuration
-MAX_BACKUPS=3
-BACKUP_DIR="/hdd/.backup/"
+MAX_BACKUPS=5
+BACKUP_DIR="/mnt/backup"
 SOURCE_DIR="/hdd/"
 EXCLUDE_DIRS=(
     "media/tv/"
@@ -13,8 +13,6 @@ EXCLUDE_DIRS=(
     "pictures/library/storage/cache/"
     "pictures/library/database/"
     ".torrents/"
-    ".backup/"
-    ".backup"
     ".monitoring"
     "games/.database"
 )
@@ -27,6 +25,18 @@ RSYNC_OUTPUT=$(mktemp)
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
 }
+
+cleanup() {
+    local exit_code=$?
+    if [[ -n "$EMAIL" ]] && [[ -f "$RSYNC_OUTPUT" ]]; then
+        "$NOTIFICATION_SCRIPT" "$EMAIL" "Backup Report - ${DATE}" -f "$RSYNC_OUTPUT" \
+            && log "INFO: Email notification sent to $EMAIL" \
+            || log "Warning: Failed to send email notification"
+    fi
+    rm -f "$RSYNC_OUTPUT"
+    exit "$exit_code"
+}
+trap cleanup EXIT
 
 # Create log directory if it doesn't exist
 mkdir -p "$(dirname "$LOG_FILE")"
@@ -52,32 +62,35 @@ log "INFO: Available space: $(numfmt --to=iec-i --suffix=B ${AVAILABLE_SPACE})"
 SNAPSHOT_DIR="${BACKUP_DIR}/${BACKUP_NAME}"
 LATEST_LINK="${BACKUP_DIR}/latest"
 
-# Check if previous backup exists to enable incremental backup
+# Build rsync arguments
+RSYNC_ARGS=(-aAXH --delete-after)
+
+for dir in "${EXCLUDE_DIRS[@]}"; do
+    RSYNC_ARGS+=(--exclude="$dir")
+done
+
 if [ -d "${LATEST_LINK}" ]; then
-    LINK_DEST="--link-dest=${LATEST_LINK}"
+    RSYNC_ARGS+=(--link-dest="${LATEST_LINK}")
     log "INFO: Using incremental backup with reference to ${LATEST_LINK}"
 else
-    LINK_DEST=""
     log "INFO: No previous backup found, performing full backup"
 fi
 
-EXCLUDE_PARAMS=""
-for dir in "${EXCLUDE_DIRS[@]}"; do
-    EXCLUDE_PARAMS="${EXCLUDE_PARAMS} --exclude='${dir}'"
-done
+RSYNC_ARGS+=(. "${SNAPSHOT_DIR}")
 
 # Start rsync backup
 log "INFO: Starting rsync Backup"
 START_TIME=$(date +%s)
 
-# Create the new backup using rsync with hardlinks for unchanged files
 cd "${SOURCE_DIR}" || exit 1
 
-eval rsync -aAXHv --delete --stats \
-    ${EXCLUDE_PARAMS} \
-    ${LINK_DEST} \
-    . "${SNAPSHOT_DIR}" \
-    > >(tee "$RSYNC_OUTPUT" >> "$LOG_FILE") 2>&1
+if [ -t 1 ]; then
+    # Interactive: progress bar on terminal, transfer log to file
+    rsync "${RSYNC_ARGS[@]}" --info=progress2,stats2 --log-file="$LOG_FILE" 2>&1
+else
+    # Cron: all output to log file
+    rsync "${RSYNC_ARGS[@]}" --info=stats2 >> "$LOG_FILE" 2>&1
+fi
 
 RSYNC_STATUS=$?
 TIME_ELAPSED=$(($(date +%s) - START_TIME))
@@ -104,18 +117,30 @@ DURATION=$(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60))
     echo "─────────────────────────────────────────────────"
     echo "Transfer Statistics:"
     echo "─────────────────────────────────────────────────"
-    grep -E "Number of files:|Number of created files:|Number of deleted files:|Number of regular files transferred:|Total file size:|Total transferred file size:|Literal data:|Matched data:|File list size:|Total bytes sent:|Total bytes received:" "$LOG_FILE" | tail -20 | sed 's/^/  /'
+    grep -E "^(Number of files:|Number of created files:|Number of deleted files:|Number of regular files transferred:|Total file size:|Total transferred file size:|Literal data:|Matched data:|File list size:|Total bytes sent:|Total bytes received:)" "$LOG_FILE" | tail -11 | awk -F": " '
+    function commafy(n,   s,p,out,i,len) {
+      s = sprintf("%.1f", n); split(s, p, "."); s = p[1]; len = length(s); out = ""
+      for (i = 1; i <= len; i++) {
+        out = out substr(s, i, 1)
+        if ((len - i) % 3 == 0 && i < len) out = out ","
+      }
+      return out "." p[2]
+    }
+    /^(Total file size|Total transferred file size|Literal data|Matched data|File list size|Total bytes sent|Total bytes received)/ {
+      v = $2; gsub(/[^0-9]/, "", v)
+      printf "  %s: %s MB\n", $1, commafy(v/1048576); next
+    }
+    { print "  " $0 }
+    ' 
     echo ""
 
-    # Check for errors or warnings in the log (fixed integer comparison)
+    # Check for errors or warnings in the log
     ERROR_COUNT=$(grep -c "ERROR:" "$LOG_FILE" 2>/dev/null || echo "0")
     WARNING_COUNT=$(grep -c "Warning:" "$LOG_FILE" 2>/dev/null || echo "0")
-    
-    # Remove any whitespace/newlines
+
     ERROR_COUNT=$(echo "$ERROR_COUNT" | tr -d '[:space:]')
     WARNING_COUNT=$(echo "$WARNING_COUNT" | tr -d '[:space:]')
-    
-    # Ensure they're valid integers
+
     ERROR_COUNT=${ERROR_COUNT:-0}
     WARNING_COUNT=${WARNING_COUNT:-0}
 
@@ -146,7 +171,6 @@ DURATION=$(printf '%dh:%dm:%ds' $((TIME_ELAPSED/3600)) $((TIME_ELAPSED%3600/60))
 # Display summary in log
 cat "$RSYNC_OUTPUT" | tee -a "$LOG_FILE"
 
-
 if [ $RSYNC_STATUS -eq 0 ]; then
     log "INFO: Backup Successful"
 
@@ -172,16 +196,3 @@ log "INFO: Listing Backups"
 ls -la "${BACKUP_DIR}" | tee -a "$LOG_FILE"
 log "INFO: Backup Script Completed Successfully"
 
-# Send email with summary instead of full log
-if [[ -n "$EMAIL" ]]; then
-    if "$NOTIFICATION_SCRIPT" "$EMAIL" "Backup Report - ${DATE}" -f "$RSYNC_OUTPUT"; then
-        log "INFO: Email notification sent to $EMAIL"
-    else
-        log "Warning: Failed to send email notification"
-    fi
-else
-    log "INFO: EMAIL env var not set - skipping email notification"
-fi
-
-# Clean up temporary files
-rm -f "$RSYNC_OUTPUT"
